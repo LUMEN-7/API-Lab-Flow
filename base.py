@@ -26,18 +26,20 @@ def get_connection():
 @app.route('/insumos', methods=['POST'])
 def criar_insumo():
     data = request.get_json()
-    id_insumo = data.get("id_insumo")
     nome_insumo = data.get("nome_insumo")
 
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO insumo (id_insumo, nome_insumo) VALUES (%s, %s)",
-                (id_insumo, nome_insumo))
+    cur.execute(
+        "INSERT INTO insumo (nome_insumo) VALUES (%s) RETURNING id_insumo",
+        (nome_insumo,)
+    )
+    new_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
     conn.close()
 
-    return jsonify({"mensagem": "Insumo criado com sucesso!"}), 201
+    return jsonify({"mensagem": "Insumo criado com sucesso!", "id_insumo": new_id}), 201
 
 
 @app.route('/insumos', methods=['GET'])
