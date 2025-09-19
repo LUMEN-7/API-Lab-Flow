@@ -1,6 +1,10 @@
 from flask import Flask, jsonify, request
 import psycopg2
 import json
+import jwt
+import bcrypt
+import datetime
+from functools import wraps
 
 
 DATABASE_URL = ""
@@ -21,9 +25,54 @@ def get_connection():
         port=config["port"]
     )
 
+
+
+
+SECRET_KEY = load_db_config()["SECRET"]
+
+
+
+def gerar_token(email_usuario):
+    payload = {
+        "email_usuario": email_usuario,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    return token
+
+
+
+def token_obrigatorio(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        # Token vem no header Authorization: Bearer <token>
+        if "Authorization" in request.headers:
+            partes = request.headers["Authorization"].split(" ")
+            if len(partes) == 2 and partes[0] == "Bearer":
+                token = partes[1]
+
+        if not token:
+            return jsonify({"erro": "Token é obrigatório!"}), 401
+
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            # guarda o email do usuário no request (para usar dentro da rota)
+            request.email_usuario = data["email_usuario"]
+        except jwt.ExpiredSignatureError:
+            return jsonify({"erro": "Token expirado!"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"erro": "Token inválido!"}), 401
+
+        return f(*args, **kwargs)
+    return decorated
+
+
 #CRUD insumos
 
 @app.route('/insumos', methods=['POST'])
+@token_obrigatorio
 def criar_insumo():
     data = request.get_json()
     nome_insumo = data.get("nome_insumo")
@@ -43,6 +92,7 @@ def criar_insumo():
 
 
 @app.route('/insumos', methods=['GET'])
+@token_obrigatorio
 def listar_insumos():
     conn = get_connection()
     cur = conn.cursor()
@@ -56,6 +106,7 @@ def listar_insumos():
 
 
 @app.route('/insumos/<int:id_insumo>', methods=['GET'])
+@token_obrigatorio
 def obter_insumo(id_insumo):
     conn = get_connection()
     cur = conn.cursor()
@@ -71,6 +122,7 @@ def obter_insumo(id_insumo):
 
 
 @app.route('/insumos/<int:id_insumo>', methods=['PUT'])
+@token_obrigatorio
 def atualizar_insumo(id_insumo):
     data = request.get_json()
     novo_nome = data.get("nome_insumo")
@@ -87,6 +139,7 @@ def atualizar_insumo(id_insumo):
 
 
 @app.route('/insumos/<int:id_insumo>', methods=['DELETE'])
+@token_obrigatorio
 def deletar_insumo(id_insumo):
     conn = get_connection()
     cur = conn.cursor()
@@ -100,6 +153,7 @@ def deletar_insumo(id_insumo):
 #CRUD fornecedor
 
 @app.route("/fornecedores", methods=["POST"])
+@token_obrigatorio
 def criar_fornecedor():
     data = request.get_json()
     nome = data.get("nome_fornecedor")
@@ -121,6 +175,7 @@ def criar_fornecedor():
 
 
 @app.route("/fornecedores", methods=["GET"])
+@token_obrigatorio
 def listar_fornecedores():
     conn = get_connection()
     cur = conn.cursor()
@@ -144,6 +199,7 @@ def listar_fornecedores():
 
 
 @app.route("/fornecedores/<int:id_fornecedor>", methods=["PUT"])
+@token_obrigatorio
 def atualizar_fornecedor(id_fornecedor):
     data = request.get_json()
     nome = data.get("nome_fornecedor")
@@ -167,6 +223,7 @@ def atualizar_fornecedor(id_fornecedor):
 
 
 @app.route("/fornecedores/<int:id_fornecedor>", methods=["DELETE"])
+@token_obrigatorio
 def deletar_fornecedor(id_fornecedor):
     conn = get_connection()
     cur = conn.cursor()
@@ -176,6 +233,73 @@ def deletar_fornecedor(id_fornecedor):
     conn.close()
 
     return jsonify({"mensagem": "Fornecedor deletado com sucesso!"})
+
+
+# autenticação
+@app.route("/usuarios", methods=["POST"])
+def criar_usuario():
+    data = request.get_json()
+    email = data.get("email_usuario")
+    senha = data.get("senha_usuario")
+    cpf = data.get("usuario_cpf")
+    nome = data.get("nome_usuario", "")
+    cargo = data.get("cargo_usuario", "") 
+    admin = data.get("administrador", "N")  
+
+
+    senha_hash = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT 1 FROM usuario WHERE cpf = %s", (cpf,))
+    if cur.fetchone() is None:
+        cur.execute(
+            "INSERT INTO usuario (cpf, nome_usuario, cargo_usuario, administrador) VALUES (%s, %s, %s, %s)",
+            (cpf, nome, cargo, admin)
+        )
+
+    # Insere na tabela login
+    cur.execute(
+        "INSERT INTO login (usuario_cpf, email_usuario, senha_usuario) VALUES (%s, %s, %s)",
+        (cpf, email, senha_hash)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"mensagem": "Usuário criado com sucesso!", "email_usuario": email}), 201
+
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email_usuario")
+    senha = data.get("senha_usuario")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT email_usuario, senha_usuario FROM login WHERE email_usuario=%s",
+        (email,)
+    )
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not user:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    email_db, senha_hash_db = user
+
+    if bcrypt.checkpw(senha.encode("utf-8"), senha_hash_db.encode("utf-8")):
+        token = gerar_token(email_db)
+        return jsonify({"mensagem": "Login bem-sucedido!", "token": token}), 200
+    else:
+        return jsonify({"erro": "Senha incorreta"}), 401
+
 
 if __name__ == '__main__':
     app.run(debug=True)
