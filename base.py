@@ -99,18 +99,40 @@ def obter_insumo(id_insumo):
     else:
         return jsonify({"erro": "Insumo não encontrado"}), 404
 
-@app.route('/insumos/<int:id_insumo>', methods=['PUT'])
+@app.route('/insumos/<int:id_insumo>', methods=['PATCH'])
 @token_obrigatorio
-def atualizar_insumo(id_insumo):
+def atualizar_insumo_parcial(id_insumo):
     data = request.get_json()
-    novo_nome = data.get("nome_insumo")
+    campos_permitidos = ['nome_insumo', 'categoria', 'marca_insumo', 'descricao_insumo']
+    colunas = []
+    valores = []
+    
+    for campo in campos_permitidos:
+        if campo in data and data[campo] is not None:
+            colunas.append(f"{campo} = %s")
+            valores.append(data[campo])
+    
+    if not colunas:
+        return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
+
+    
+    valores.append(id_insumo)
+
+    query = f"UPDATE insumo SET {', '.join(colunas)} WHERE id_insumo = %s"
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE insumo SET nome_insumo = %s WHERE id_insumo = %s",
-                (novo_nome, id_insumo))
+    cur.execute(query, tuple(valores))
+    
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return jsonify({"erro": "Insumo não encontrado"}), 404
+
     conn.commit()
     cur.close()
     conn.close()
+    
     return jsonify({"mensagem": "Insumo atualizado com sucesso!"})
 
 @app.route('/insumos/<int:id_insumo>', methods=['DELETE'])
