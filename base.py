@@ -147,6 +147,30 @@ def deletar_insumo(id_insumo):
     return jsonify({"mensagem": "Insumo deletado com sucesso!"})
 
 
+# --- CRUD Exame ---
+@app.route('/exames', methods=['POST'])
+@token_obrigatorio
+def criar_exame():
+    data = request.get_json()
+    nome_exame = data.get("nome_exame")
+    descricao_exame = data.get("descricao_exame", "")
+
+    if not nome_exame:
+        return jsonify({"erro": "Nome do exame é obrigatório"}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO exames (nome_exame, descricao_exame) VALUES (%s, %s) RETURNING id_exame",
+        (nome_exame, descricao_exame)
+    )
+    new_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"mensagem": "Exame criado com sucesso!", "id_exame": new_id}), 201
+
 # --- Autenticação ---
 @app.route("/usuarios", methods=["POST"])
 def criar_usuario():
