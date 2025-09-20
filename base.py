@@ -200,23 +200,23 @@ def criar_usuario():
     cpf = data.get("usuario_cpf")
     nome = data.get("nome_usuario", "")
     cargo = data.get("cargo_usuario", "") 
-    admin = data.get("administrador", "N")  
+    admin = data.get("administrador", "N")
+    status = data.get("status", "ATIVO")
+    id_unidade = data.get("id_unidade")
+
+    if not cpf or not email or not senha:
+        return jsonify({"erro": "CPF, email e senha são obrigatórios"}), 400
 
     senha_hash = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT 1 FROM usuario WHERE cpf = %s", (cpf,))
+    cur.execute("SELECT 1 FROM user_lab WHERE cpf = %s", (cpf,))
     if cur.fetchone() is None:
         cur.execute(
-            "INSERT INTO usuario (cpf, nome_usuario, cargo_usuario, administrador) VALUES (%s, %s, %s, %s)",
-            (cpf, nome, cargo, admin)
+            "INSERT INTO user_lab (CPF, UNIDADE_ID_unidade, nome_user, cargo_user, email_user, senha_user, status_user, administrador) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (cpf, id_unidade, nome, cargo, email, senha_hash, status, admin)
         )
-    # Insere na tabela login
-    cur.execute(
-        "INSERT INTO login (usuario_cpf, email_usuario, senha_usuario) VALUES (%s, %s, %s)",
-        (cpf, email, senha_hash)
-    )
     conn.commit()
     cur.close()
     conn.close()
