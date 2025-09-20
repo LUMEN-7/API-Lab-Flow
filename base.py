@@ -58,7 +58,7 @@ def criar_insumo():
     desc = data.get("descricao_insumo", "")
 
 
-    if not nome_insumo or not desc:
+    if not nome_insumo:
         return jsonify({"erro": "Nome do insumo é obrigatório"}), 400
     conn = get_connection()
     cur = conn.cursor()
