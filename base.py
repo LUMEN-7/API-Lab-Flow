@@ -226,13 +226,13 @@ def criar_usuario():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    email = data.get("email_usuario")
-    senha = data.get("senha_usuario")
+    email = data.get("email_user")
+    senha = data.get("senha_user")
 
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT email_usuario, senha_usuario FROM login WHERE email_usuario=%s",
+        "SELECT email_user, senha_user FROM user_lab WHERE email_user=%s",
         (email,)
     )
     user = cur.fetchone()
