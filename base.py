@@ -391,7 +391,7 @@ def criar_usuario():
     cur.execute("SELECT 1 FROM user_lab WHERE cpf = %s", (cpf,))
     if cur.fetchone() is None:
         cur.execute(
-            "INSERT INTO user_lab (CPF, UNIDADE_ID_unidade, nome_user, cargo_user, email_user, senha_user, administrador) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO user_lab (CPF, nome_user, cargo_user, email_user, senha_user, administrador) VALUES (%s, %s, %s, %s, %s, %s)",
             (cpf, id_unidade, nome, cargo, email, senha_hash, admin)
         )
     conn.commit()
