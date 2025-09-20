@@ -15,9 +15,9 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "chave_temporaria")
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def gerar_token(email_usuario):
+def gerar_token(email_user):
     payload = {
-        "email_usuario": email_usuario,
+        "email_user": email_user,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
@@ -38,7 +38,7 @@ def token_obrigatorio(f):
 
         try:
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            request.email_usuario = data["email_usuario"]
+            request.email_user = data["email_user"]
         except jwt.ExpiredSignatureError:
             return jsonify({"erro": "Token expirado!"}), 401
         except jwt.InvalidTokenError:
@@ -53,12 +53,18 @@ def token_obrigatorio(f):
 def criar_insumo():
     data = request.get_json()
     nome_insumo = data.get("nome_insumo")
+    categoria = data.get("categoria", "")
+    marca = data.get("marca_insumo", "")
+    desc = data.get("descricao_insumo", "")
 
+
+    if not nome_insumo or not desc:
+        return jsonify({"erro": "Nome do insumo é obrigatório"}), 400
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO insumo (nome_insumo) VALUES (%s) RETURNING id_insumo",
-        (nome_insumo,)
+        "INSERT INTO insumo (nome_insumo, categoria, marca_insumo, descricao_insumo) VALUES (%s, %s, %s, %s) RETURNING id_insumo",
+        (nome_insumo, categoria, marca, desc)
     )
     new_id = cur.fetchone()[0]
     conn.commit()
