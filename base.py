@@ -15,9 +15,10 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "chave_temporaria")
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def gerar_token(email_user):
+def gerar_token(email_user, cpf_user):
     payload = {
         "email_user": email_user,
+        "cpf": cpf_user,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
@@ -39,6 +40,7 @@ def token_obrigatorio(f):
         try:
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             request.email_user = data["email_user"]
+            request.cpf_user = data["cpf"]
         except jwt.ExpiredSignatureError:
             return jsonify({"erro": "Token expirado!"}), 401
         except jwt.InvalidTokenError:
@@ -501,6 +503,68 @@ def deletar_unidade(id_unidade):
     return jsonify({"mensagem": "Unidade deletada com sucesso!"})
 
 
+@app.route("/usar_insumos", methods=["POST"])
+@token_obrigatorio
+def usar_insumos():
+    data = request.get_json()
+    id_estoque = data.get("id_estoque")
+    id_cabine = data.get("id_cabine")
+    insumos = data.get("insumos")
+
+    if not id_estoque or not id_cabine:
+        return jsonify({"erro": "id_estoque e id_cabine são obrigatórios"}), 400
+    if not insumos or not isinstance(insumos, list):
+        return jsonify({"erro": "Informe uma lista de insumos com id_insumo e quantidade"}), 400
+
+    usuario_responsavel = request.cpf_user
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT quantidade_atual FROM estoque WHERE id_estoque = %s", (id_estoque,))
+        resultado = cur.fetchone()
+        if not resultado:
+            return jsonify({"erro": "Estoque não encontrado"}), 404
+
+        quantidade_atual_estoque = resultado[0]
+
+        total_quantidade = sum(item["quantidade"] for item in insumos)
+        if quantidade_atual_estoque < total_quantidade:
+            return jsonify({"erro": "Quantidade insuficiente no estoque"}), 400
+
+        nova_quantidade = quantidade_atual_estoque - total_quantidade
+        cur.execute("UPDATE estoque SET quantidade_atual = %s WHERE id_estoque = %s", (nova_quantidade, id_estoque))
+
+        for item in insumos:
+            if "id_insumo" not in item or "quantidade" not in item or item["quantidade"] <= 0:
+                return jsonify({"erro": "Cada insumo precisa de id_insumo e quantidade válida"}), 400
+
+            cur.execute("""
+                INSERT INTO historico
+                (cpf, id_estoque, id_cabine, id_insumo, data_hora_movimentacao, tipo_movimentacao, quantidade_insumo, origem, destino)
+                VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s)
+            """, (
+                usuario_responsavel,
+                id_estoque,
+                id_cabine,
+                item["id_insumo"],
+                "SAÍDA",
+                item["quantidade"],
+                "ESTOQUE DA UNIDADE",
+                "CABINE"
+            ))
+
+        conn.commit()
+        return jsonify({"mensagem": "Todos os insumos usados e histórico registrado com sucesso!"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
 # --- Autenticação ---
 @app.route("/usuarios", methods=["POST"])
 def criar_usuario():
@@ -544,7 +608,7 @@ def login():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT email_user, senha_user FROM user_lab WHERE email_user=%s",
+        "SELECT email_user, senha_user, cpf FROM user_lab WHERE email_user=%s",
         (email,)
     )
     user = cur.fetchone()
@@ -554,10 +618,10 @@ def login():
     if not user:
         return jsonify({"erro": "Usuário não encontrado"}), 404
 
-    email_db, senha_hash_db = user
+    email_db, senha_hash_db, cpf_db = user
 
     if bcrypt.checkpw(senha.encode("utf-8"), senha_hash_db.encode("utf-8")):
-        token = gerar_token(email_db)
+        token = gerar_token(email_db, cpf_db)
         return jsonify({"mensagem": "Login bem-sucedido!", "token": token}), 200
     else:
         return jsonify({"erro": "Senha incorreta"}), 401
