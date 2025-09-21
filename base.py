@@ -47,9 +47,28 @@ def token_obrigatorio(f):
         return f(*args, **kwargs)
     return decorated
 
+def admin_obrigatorio(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        email = getattr(request, "email_user", None)
+        if not email:
+            return jsonify({"erro": "Token inválido!"}), 401
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT administrador FROM user_lab WHERE email_user=%s", (email,))
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not result or result[0] != "S":
+            return jsonify({"erro": "Acesso negado. Administrador necessário."}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 # --- CRUD Insumos ---
 @app.route('/insumos', methods=['POST'])
 @token_obrigatorio
+@admin_obrigatorio
 def criar_insumo():
     data = request.get_json()
     nome_insumo = data.get("nome_insumo")
@@ -101,6 +120,7 @@ def obter_insumo(id_insumo):
 
 @app.route('/insumos/<int:id_insumo>', methods=['PATCH'])
 @token_obrigatorio
+@admin_obrigatorio
 def atualizar_insumo_parcial(id_insumo):
     data = request.get_json()
     campos_permitidos = ['nome_insumo', 'categoria', 'marca_insumo', 'descricao_insumo']
@@ -137,6 +157,7 @@ def atualizar_insumo_parcial(id_insumo):
 
 @app.route('/insumos/<int:id_insumo>', methods=['DELETE'])
 @token_obrigatorio
+@admin_obrigatorio
 def deletar_insumo(id_insumo):
     conn = get_connection()
     cur = conn.cursor()
@@ -150,6 +171,7 @@ def deletar_insumo(id_insumo):
 # --- CRUD Exame ---
 @app.route('/exames', methods=['POST'])
 @token_obrigatorio
+@admin_obrigatorio
 def criar_exame():
     data = request.get_json()
     nome_exame = data.get("nome_exame")
@@ -191,6 +213,7 @@ def listar_exames():
 
 @app.route('/exames/<int:id_exame>', methods=['PATCH'])
 @token_obrigatorio
+@admin_obrigatorio
 def atualizar_exame(id_exame):
     data = request.get_json()
     campos_permitidos = ['nome_exame', 'descricao_exame']
@@ -226,6 +249,7 @@ def atualizar_exame(id_exame):
 
 @app.route('/exames/<int:id_exame>', methods=['DELETE'])
 @token_obrigatorio
+@admin_obrigatorio
 def deletar_exame(id_exame):
     conn = get_connection()
     cur = conn.cursor()
@@ -372,6 +396,7 @@ def deletar_pedido(n_pedido):
 # --- CRUD Unidade ---
 @app.route('/unidades', methods=['POST'])
 @token_obrigatorio
+@admin_obrigatorio
 def criar_unidade():
     data = request.get_json()
     marca = data.get("marca_unidade")
@@ -427,6 +452,7 @@ def obter_unidade(id_unidade):
 
 @app.route('/unidades/<int:id_unidade>', methods=['PATCH'])
 @token_obrigatorio
+@admin_obrigatorio
 def atualizar_unidade(id_unidade):
     data = request.get_json()
     campos_permitidos = ['marca_unidade', 'endereco_unidade', 'quantidade_cabine']
@@ -460,6 +486,7 @@ def atualizar_unidade(id_unidade):
 
 @app.route('/unidades/<int:id_unidade>', methods=['DELETE'])
 @token_obrigatorio
+@admin_obrigatorio
 def deletar_unidade(id_unidade):
     conn = get_connection()
     cur = conn.cursor()
