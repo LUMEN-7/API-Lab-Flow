@@ -379,7 +379,6 @@ def criar_usuario():
     nome = data.get("nome_usuario", "")
     cargo = data.get("cargo_usuario", "") 
     admin = data.get("administrador", "N")
-    id_unidade = data.get("id_unidade")
 
     if not cpf or not email or not senha:
         return jsonify({"erro": "CPF, email e senha são obrigatórios"}), 400
@@ -394,11 +393,13 @@ def criar_usuario():
             "INSERT INTO user_lab (CPF, nome_user, cargo_user, email_user, senha_user, administrador) VALUES (%s, %s, %s, %s, %s, %s)",
             (cpf, nome, cargo, email, senha_hash, admin)
         )
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
+        conn.close()
 
-    return jsonify({"mensagem": "Usuário criado com sucesso!", "email_usuario": email}), 201
+        return jsonify({"mensagem": "Usuário criado com sucesso!", "email_usuario": email}), 201
+    else:
+        return jsonify({"erro": f"Usuário com CPF {cpf} já existe"}), 400
 
 @app.route("/login", methods=["POST"])
 def login():
