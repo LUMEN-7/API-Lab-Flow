@@ -18,10 +18,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "chave_temporaria")
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def gerar_token(email_user, cpf_user):
+def gerar_token(email_user, cpf_user, admin_user):
     payload = {
         "email_user": email_user,
         "cpf": cpf_user,
+        "administrador": admin_user,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
@@ -44,6 +45,7 @@ def token_obrigatorio(f):
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             request.email_user = data["email_user"]
             request.cpf_user = data["cpf"]
+            request.admin_user = data.get("administrador", "N")  # Default para "N" se não existir
         except jwt.ExpiredSignatureError:
             return jsonify({"erro": "Token expirado!"}), 401
         except jwt.InvalidTokenError:
@@ -51,6 +53,7 @@ def token_obrigatorio(f):
 
         return f(*args, **kwargs)
     return decorated
+
 
 def admin_obrigatorio(f):
     @wraps(f)
@@ -799,7 +802,111 @@ def deletar_estoque(id_estoque):
     finally:
         cur.close()
         conn.close()
+    
 
+# --- CRUD usuarios ---
+@app.route("/usuarios", methods=["GET"])
+@token_obrigatorio
+def listar_usuarios():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if getattr(request, "admin_user", False):
+        cur.execute("SELECT cpf, nome_user, cargo_user, email_user, administrador FROM user_lab")
+    else:
+        cur.execute("SELECT cpf, nome_user, cargo_user, email_user, administrador FROM user_lab WHERE cpf=%s", (request.cpf_user,))
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    usuarios = [
+        {"cpf": r[0], "nome_user": r[1], "cargo_user": r[2], "email_user": r[3], "administrador": r[4]}
+        for r in rows
+    ]
+    return jsonify(usuarios), 200
+
+
+@app.route("/usuarios/<cpf>", methods=["GET"])
+@token_obrigatorio
+def obter_usuario(cpf):
+    if request.cpf_user != cpf and not getattr(request, "admin_user", False):
+        return jsonify({"erro": "Sem permissão"}), 403
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT cpf, nome_user, cargo_user, email_user, administrador FROM user_lab WHERE cpf=%s", (cpf,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    usuario = {"cpf": row[0], "nome_user": row[1], "cargo_user": row[2], "email_user": row[3], "administrador": row[4]}
+    return jsonify(usuario), 200
+
+
+@app.route("/usuarios/<cpf>", methods=["PATCH"])
+@token_obrigatorio
+def atualizar_usuario(cpf):
+    if request.cpf_user != cpf and not getattr(request, "admin_user", False):
+        return jsonify({"erro": "Sem permissão"}), 403
+
+    data = request.get_json()
+    campos_permitidos = ["nome_user", "cargo_user", "email_user", "senha_user", "administrador"]
+    colunas = []
+    valores = []
+
+    for campo in campos_permitidos:
+        if campo in data and data[campo] is not None:
+            if campo == "senha_user":
+                # hash da senha
+                senha_hash = bcrypt.hashpw(data[campo].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                colunas.append(f"{campo}=%s")
+                valores.append(senha_hash)
+            else:
+                colunas.append(f"{campo}=%s")
+                valores.append(data[campo])
+
+    if not colunas:
+        return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
+
+    valores.append(cpf)
+    query = f"UPDATE user_lab SET {', '.join(colunas)} WHERE cpf=%s"
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(query, tuple(valores))
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"mensagem": "Usuário atualizado com sucesso!"}), 200
+
+
+@app.route("/usuarios/<cpf>", methods=["DELETE"])
+@token_obrigatorio
+def deletar_usuario(cpf):
+    if request.cpf_user != cpf and not getattr(request, "admin_user", False):
+        return jsonify({"erro": "Sem permissão"}), 403
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM user_lab WHERE cpf=%s", (cpf,))
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"mensagem": "Usuário deletado com sucesso!"}), 200
 
 # --- Autenticação ---
 @app.route("/usuarios", methods=["POST"])
@@ -844,7 +951,7 @@ def login():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT email_user, senha_user, cpf FROM user_lab WHERE email_user=%s",
+        "SELECT email_user, senha_user, cpf, administrador FROM user_lab WHERE email_user=%s",
         (email,)
     )
     user = cur.fetchone()
@@ -854,10 +961,10 @@ def login():
     if not user:
         return jsonify({"erro": "Usuário não encontrado"}), 404
 
-    email_db, senha_hash_db, cpf_db = user
+    email_db, senha_hash_db, cpf_db, admin_db = user
 
     if bcrypt.checkpw(senha.encode("utf-8"), senha_hash_db.encode("utf-8")):
-        token = gerar_token(email_db, cpf_db)
+        token = gerar_token(email_db, cpf_db, admin_db)
         return jsonify({"mensagem": "Login bem-sucedido!", "token": token}), 200
     else:
         return jsonify({"erro": "Senha incorreta"}), 401
