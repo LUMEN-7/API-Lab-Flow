@@ -565,6 +565,29 @@ def usar_insumos():
         conn.close()
 
 
+@app.route("/checar_estoque/<int:id_unidade>/<int:id_insumo>", methods=["GET"])
+@token_obrigatorio
+def checar_quantidade_estoque(id_unidade, id_insumo):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT quantidade_atual, quantidade_minima_permitida FROM estoque WHERE id_unidade=%s AND id_insumo=%s", (id_unidade, id_insumo))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    
+    if row:
+        quantidade_atual, quantidade_minima = row
+        if quantidade_atual <= quantidade_minima:
+            return jsonify({"mensagem": ["Estoque Crítico", quantidade_atual]}), 200
+        elif quantidade_atual <= quantidade_minima * 1.2:
+            return jsonify({"mensagem": ["Quantidade baixa", quantidade_atual]}), 200
+        else:
+            return jsonify({"mensagem": ["Estoque ok", quantidade_atual]}), 200
+    else:
+        return jsonify({"mensagem": "ID da unidade ou do insumo inválido"}), 400
+            
+
 # --- Autenticação ---
 @app.route("/usuarios", methods=["POST"])
 def criar_usuario():
