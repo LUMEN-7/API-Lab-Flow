@@ -5,8 +5,11 @@ import jwt
 import bcrypt
 import datetime
 from functools import wraps
+from flask_cors import CORS
 
 app = Flask(__name__)
+
+CORS(app)
 
 # Variáveis de ambiente
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -564,7 +567,7 @@ def usar_insumos():
         cur.close()
         conn.close()
 
-
+# --- Funções e CRUD de estoque ---
 @app.route("/checar_estoque/<int:id_unidade>/<int:id_insumo>", methods=["GET"])
 @token_obrigatorio
 def checar_quantidade_estoque(id_unidade, id_insumo):
