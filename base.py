@@ -9,7 +9,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Variáveis de ambiente
 DATABASE_URL = os.environ.get("DATABASE_URL")
