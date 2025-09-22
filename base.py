@@ -568,7 +568,7 @@ def usar_insumos():
         conn.close()
 
 # --- Funções do histórico
-@app.route("/historico", methods=["GET"])
+@app.route("/historico", methods=["POST"])
 @token_obrigatorio
 def listar_historico():
     # opções: ENTRADA, SAÍDA, DESCARTE
