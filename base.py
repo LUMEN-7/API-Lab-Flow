@@ -805,7 +805,6 @@ def deletar_estoque(id_estoque):
     
 
 # --- CRUD usuarios ---
-# --- CRUD USUÁRIO COM CAMPOS ADICIONAIS ---
 @app.route("/usuarios", methods=["POST"])
 def criar_usuario():
     data = request.get_json()
@@ -965,6 +964,34 @@ def deletar_usuario(cpf):
     cur.close()
     conn.close()
     return jsonify({"mensagem": "Usuário deletado com sucesso!"}), 200
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email_user")
+    senha = data.get("senha_user")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT email_user, senha_user, cpf, administrador FROM user_lab WHERE email_user=%s",
+        (email,)
+    )
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not user:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    email_db, senha_hash_db, cpf_db, admin_db = user
+
+    if bcrypt.checkpw(senha.encode("utf-8"), senha_hash_db.encode("utf-8")):
+        token = gerar_token(email_db, cpf_db, admin_db)
+        return jsonify({"mensagem": "Login bem-sucedido!", "token": token}), 200
+    else:
+        return jsonify({"erro": "Senha incorreta"}), 401
 
 
 if __name__ == '__main__':
