@@ -40,7 +40,7 @@ Projeto acadêmico desenvolvido em Python utilizando **Flask** para criação de
 
    ```bash
    git clone https://github.com/LUMEN-7/API-Lab-Flow
-   cd nome_do_projeto
+   cd API-Lab-Flow
    ```
 2. Instale as dependências:
 
