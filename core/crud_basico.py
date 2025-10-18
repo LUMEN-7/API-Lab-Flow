@@ -2,7 +2,7 @@ from datetime import datetime, date
 from flask import jsonify
 from core.database import get_connection
 from psycopg2 import sql, DatabaseError
-from psycopg2.errors import UndefinedTable, SyntaxError
+from psycopg2.errors import UndefinedTable, SyntaxError, OperationalError
 
 
 
@@ -162,6 +162,7 @@ def get_item(tabela, id_base, id_busca):
     except Exception as e:
         return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 400
 
+
 def deletar_item(tabela, id_base, id_busca):
     try:
         #  Verificações básicas
@@ -201,6 +202,75 @@ def deletar_item(tabela, id_base, id_busca):
 
     except DatabaseError as e:
         return jsonify({"erro": f"Erro ao deletar item: {str(e)}"}), 400
+
+    except Exception as e:
+        return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 400
+
+
+def atualizar_itens(tabela, campos_permitidos, id_base, id_busca, data):
+    try:
+        # ⚙️ Validações iniciais
+        if not all([tabela, id_base, id_busca, campos_permitidos, data]):
+            return jsonify({"erro": "Parâmetros inválidos"}), 400
+        
+        if not isinstance(tabela, str) or not isinstance(id_base, str):
+            return jsonify({"erro": "Nome da tabela ou coluna inválido"}), 400
+
+        if not isinstance(campos_permitidos, (list, tuple)):
+            return jsonify({"erro": "Campos permitidos deve ser uma lista"}), 400
+
+        # 🔍 Monta colunas e valores dinamicamente
+        colunas = []
+        valores = []
+        
+        data_convertida = {k: parse_data_segura(v) for k, v in data.items()}
+
+        for campo in campos_permitidos:
+            if campo in data_convertida and data_convertida[campo] is not None:
+                colunas.append(sql.SQL("{} = %s").format(sql.Identifier(campo)))
+                valores.append(data_convertida[campo])
+
+        if not colunas:
+            return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
+        print(valores)
+        # 🧱 Monta query segura
+        query = sql.SQL("UPDATE {tabela} SET {set_clause} WHERE {id_coluna} = %s RETURNING *").format(
+            tabela=sql.Identifier(tabela),
+            set_clause=sql.SQL(", ").join(colunas),
+            id_coluna=sql.Identifier(id_base)
+        )
+
+        valores.append(id_busca)  # valor do WHERE
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(query, tuple(valores))
+
+        # 🔍 Verifica se algo foi atualizado
+        updated = cur.fetchone()
+        if not updated:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return jsonify({"erro": "Item não encontrado"}), 404
+
+        conn.commit()
+        colunas_retorno = [desc[0] for desc in cur.description]
+        data_retorno = dict(zip(colunas_retorno, updated))
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "mensagem": "Item atualizado com sucesso!",
+            "item_atualizado": data_retorno
+        }), 200
+
+    except OperationalError:
+        return jsonify({"erro": "Erro na conexão com o banco de dados"}), 500
+
+    except DatabaseError as e:
+        return jsonify({"erro": f"Erro ao atualizar item: {str(e)}"}), 400
 
     except Exception as e:
         return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 400

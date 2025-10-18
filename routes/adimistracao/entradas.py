@@ -29,48 +29,14 @@ def obter_entradas(id_entrada):
 # @admin_obrigatorio
 def deletar_entrada(id_entrada):
     return deletar_item(tabela= "entrada_estoque_armazem", id_base="id_encomenda", id_busca=id_entrada)
-    # conn = get_connection()
-    # cur = conn.cursor()
-    # cur.execute("DELETE FROM entradas WHERE id_insumo = %s", (id_insumo,))
-    # conn.commit()
-    # cur.close()
-    # conn.close()
-    # return jsonify({"mensagem": "Insumo deletado com sucesso!"})
 
 
-@entradas_bp.route('/<int:id_entradas>', methods=['PATCH'])
+@entradas_bp.route('/<int:id_entrada>', methods=['PATCH'])
 # @token_obrigatorio
 # @admin_obrigatorio
-def atualizar_entradas_parcial(id_entradas):
+def atualizar_entradas(id_entrada):
     data = request.get_json()
-    campos_permitidos = ['nome_entradas', 'categoria', 'marca_entradas', 'descricao_entradas']
-    colunas = []
-    valores = []
+    campos_permitidos = ["id_insumo","id_armazem","quantidade_entrada",'valor_unidade', 'lote', 'data_vencimento', 'local_armazenamento']
+    return atualizar_itens(tabela= "entrada_estoque_armazem" ,campos_permitidos= campos_permitidos ,id_base="id_encomenda" ,id_busca=id_entrada ,data= data )
     
-    for campo in campos_permitidos:
-        if campo in data and data[campo] is not None:
-            colunas.append(f"{campo} = %s")
-            valores.append(data[campo])
-    
-    if not colunas:
-        return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
-
-    
-    valores.append(id_entradas)
-
-    query = f"UPDATE entradas SET {', '.join(colunas)} WHERE id_entradas = %s"
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(query, tuple(valores))
-    
-    if cur.rowcount == 0:
-        cur.close()
-        conn.close()
-        return jsonify({"erro": "entradas não encontrado"}), 404
-
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return jsonify({"mensagem": "entradas atualizado com sucesso!"})
+   
