@@ -79,7 +79,7 @@ def inserir_elemento_generico(tabela, data, coluna_retorno="id"):
         return jsonify({"erro": f"Não foi possível colocar a nova entrada: {str(e)}"}), 400
 
 
-def lista_itens(tabela):
+def lista_itens(tabela, campos_nao_permitidos=None):
     try:
         # Verificações básicas
         if not tabela or not isinstance(tabela, str):
@@ -91,20 +91,32 @@ def lista_itens(tabela):
         # Consulta segura com psycopg2.sql para evitar SQL Injection
         query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(tabela))
         cur.execute(query)
+        todas_colunas = [desc[0] for desc in cur.description]
+
+        # Remove os campos não permitidos, se houver
+        if campos_nao_permitidos:
+            colunas_filtradas = [col for col in todas_colunas if col not in campos_nao_permitidos]
+        else:
+            colunas_filtradas = todas_colunas
+
+        # Monta a query com apenas as colunas permitidas
+        query = sql.SQL("SELECT {} FROM {}").format(
+            sql.SQL(", ").join(map(sql.Identifier, colunas_filtradas)),
+            sql.Identifier(tabela)
+        )
+
+        cur.execute(query)
         rows = cur.fetchall()
 
         # Se não houver resultados
         if not rows:
             return jsonify({"erro": "Nenhum registro encontrado"}), 404
 
-        # Captura os nomes das colunas dinamicamente
-        colunas = [desc[0] for desc in cur.description]
-
         cur.close()
         conn.close()
 
         # Converte para lista de dicionários
-        data = [dict(zip(colunas, row)) for row in rows]
+        data = [dict(zip(colunas_filtradas, row)) for row in rows]
 
         return jsonify(data), 200
 
@@ -118,7 +130,7 @@ def lista_itens(tabela):
         return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 400
 
     
-def get_item(tabela, id_base, id_busca):
+def get_item(tabela, id_base, id_busca, campos_nao_permitidos=None):
     try:
         # Verificações básicas
         if not all([tabela, id_base, id_busca]):
@@ -130,8 +142,22 @@ def get_item(tabela, id_base, id_busca):
         conn = get_connection()
         cur = conn.cursor()
 
-        # Consulta segura — previne SQL injection
         query = sql.SQL("SELECT * FROM {} WHERE {} = %s").format(
+            sql.Identifier(tabela),
+            sql.Identifier(id_base)
+        )
+
+        cur.execute(query, (id_busca,))
+        todas_colunas = [desc[0] for desc in cur.description]
+
+        if campos_nao_permitidos:
+            colunas_filtradas = [col for col in todas_colunas if col not in campos_nao_permitidos]
+        else:
+            colunas_filtradas = todas_colunas
+
+        # Consulta segura — previne SQL injection
+        query = sql.SQL("SELECT {} FROM {} WHERE {} = %s").format(
+            sql.SQL(", ").join(map(sql.Identifier, colunas_filtradas)),
             sql.Identifier(tabela),
             sql.Identifier(id_base)
         )

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from core.database import get_connection
 from core.auth import token_obrigatorio, admin_obrigatorio
+from core.crud_basico import *
 
 usuarios_bp = Blueprint("usuarios", __name__)
 
@@ -88,81 +89,25 @@ def atualizar_usuario(cpf):
 
 
 @usuarios_bp.route("/", methods=["GET"])
-@token_obrigatorio
+# @token_obrigatorio
+# @admin_obrigatorio
 def listar_usuarios():
-    conn = get_connection()
-    cur = conn.cursor()
-
-    if getattr(request, "admin_user", False):
-        cur.execute("""
-            SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco 
-            FROM user_lab
-        """)
-    else:
-        cur.execute("""
-            SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco 
-            FROM user_lab 
-            WHERE cpf=%s
-        """, (request.cpf_user,))
-
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    usuarios = [
-        {
-            "cpf": r[0], "nome_user": r[1], "cargo_user": r[2], "email_user": r[3], "administrador": r[4],
-            "telefone": r[5], "data_nascimento": r[6], "endereco": r[7]
-        }
-        for r in rows
-    ]
-    return jsonify(usuarios), 200
+    campos_nao_permitidos=["endereco","senha_user"]
+    return lista_itens(tabela= "user_lab",campos_nao_permitidos= campos_nao_permitidos)
 
 
 @usuarios_bp.route("/<cpf>", methods=["GET"])
-@token_obrigatorio
+# @token_obrigatorio
+# @admin_obrigatorio
 def obter_usuario(cpf):
-    if request.cpf_user != cpf and not getattr(request, "admin_user", False):
-        return jsonify({"erro": "Sem permissão"}), 403
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco 
-        FROM user_lab 
-        WHERE cpf=%s
-    """, (cpf,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not row:
-        return jsonify({"erro": "Usuário não encontrado"}), 404
-
-    usuario = {
-        "cpf": row[0], "nome_user": row[1], "cargo_user": row[2], "email_user": row[3], "administrador": row[4],
-        "telefone": row[5], "data_nascimento": row[6], "endereco": row[7]
-    }
-    return jsonify(usuario), 200
+    campos_nao_permitidos=["endereco","senha_user"]
+    return get_item(tabela="user_lab", id_base="cpf", id_busca=cpf, campos_nao_permitidos=campos_nao_permitidos)
 
 
 @usuarios_bp.route("/<cpf>", methods=["DELETE"])
 @token_obrigatorio
+# @admin_obrigatorio
 def deletar_usuario(cpf):
-    if request.cpf_user != cpf and not getattr(request, "admin_user", False):
-        return jsonify({"erro": "Sem permissão"}), 403
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM user_lab WHERE cpf=%s", (cpf,))
-    if cur.rowcount == 0:
-        cur.close()
-        conn.close()
-        return jsonify({"erro": "Usuário não encontrado"}), 404
-
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"mensagem": "Usuário deletado com sucesso!"}), 200
+    return deletar_item(tabela= "user_lab", id_base="cpf", id_busca=cpf)
 
 
