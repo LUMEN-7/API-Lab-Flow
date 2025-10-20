@@ -5,6 +5,9 @@ from core.auth import token_obrigatorio
 historico_bp = Blueprint("historico", __name__)
 
 
+
+
+
 # --- Funções do histórico
 @historico_bp.route("/", methods=["POST"])
 @token_obrigatorio

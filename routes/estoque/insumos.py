@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from core.database import get_connection
 from core.auth import token_obrigatorio, admin_obrigatorio
+from core.crud_basico import *
 
 insumos_bp = Blueprint("insumos", __name__)
 
@@ -8,110 +9,41 @@ insumos_bp = Blueprint("insumos", __name__)
 
 # --- CRUD Insumos ---
 @insumos_bp.route('/', methods=['POST'])
-@token_obrigatorio
-@admin_obrigatorio
+# @token_obrigatorio
+# @admin_obrigatorio
 def criar_insumo():
     data = request.get_json()
-    nome_insumo = data.get("nome_insumo")
-    categoria = data.get("categoria", "")
-    marca = data.get("marca_insumo", "")
-    desc = data.get("descricao_insumo", "")
-
-
-    if not nome_insumo:
-        return jsonify({"erro": "Nome do insumo é obrigatório"}), 400
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO insumo (nome_insumo, categoria, marca_insumo, descricao_insumo) VALUES (%s, %s, %s, %s) RETURNING id_insumo",
-        (nome_insumo, categoria, marca, desc)
-    )
-    new_id = cur.fetchone()[0]
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"mensagem": "Insumo criado com sucesso!", "id_insumo": new_id}), 201
+    return inserir_elemento_generico(tabela= "insumo", data= data, coluna_retorno= "id_insumo")
 
 @insumos_bp.route('/', methods=['GET'])
-@token_obrigatorio
+# @token_obrigatorio
 def listar_insumos():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM insumo")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    colunas = ["id_insumo", "nome_insumo", "categoria", "marca_insumo", "descricao_insumos", "matricula_fornecedor"]
-    return jsonify(dict(zip(colunas, rows))), 200
+    return lista_itens(tabela= "insumo")
 
 @insumos_bp.route('/<int:id_insumo>', methods=['GET'])
-@token_obrigatorio
-def obter_insumo(id_insumo):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM insumo WHERE id_insumo = %s", (id_insumo,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    if row:
-        return jsonify({"id_insumo": row[0], "nome_insumo": row[1]})
-    else:
-        return jsonify({"erro": "Insumo não encontrado"}), 404
+# @token_obrigatorio
+def obter_insumo(id_insumo):    
+    return get_item(tabela="insumo", id_base="id_insumo", id_busca=id_insumo)
+
 
 @insumos_bp.route('/<int:id_insumo>', methods=['PATCH'])
-@token_obrigatorio
-@admin_obrigatorio
+# @token_obrigatorio
+# @admin_obrigatorio
 def atualizar_insumo_parcial(id_insumo):
     data = request.get_json()
     campos_permitidos = ['nome_insumo', 'categoria', 'marca_insumo', 'descricao_insumo']
-    colunas = []
-    valores = []
-    
-    for campo in campos_permitidos:
-        if campo in data and data[campo] is not None:
-            colunas.append(f"{campo} = %s")
-            valores.append(data[campo])
-    
-    if not colunas:
-        return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
-
-    
-    valores.append(id_insumo)
-
-    query = f"UPDATE insumo SET {', '.join(colunas)} WHERE id_insumo = %s"
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(query, tuple(valores))
-    
-    if cur.rowcount == 0:
-        cur.close()
-        conn.close()
-        return jsonify({"erro": "Insumo não encontrado"}), 404
-
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return jsonify({"mensagem": "Insumo atualizado com sucesso!"})
+    return atualizar_itens(tabela= "insumo" ,campos_permitidos= campos_permitidos ,id_base="id_insumo" ,id_busca=id_insumo ,data= data )
 
 @insumos_bp.route('/<int:id_insumo>', methods=['DELETE'])
-@token_obrigatorio
-@admin_obrigatorio
+# @token_obrigatorio
+# @admin_obrigatorio
 def deletar_insumo(id_insumo):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM insumo WHERE id_insumo = %s", (id_insumo,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"mensagem": "Insumo deletado com sucesso!"})
+    return deletar_item(tabela= "insumo", id_base="id_insumo", id_busca=id_insumo)
 
 
 # --- Função usar insumos ---
 @insumos_bp.route("/usar_insumos", methods=["POST"])
-@token_obrigatorio
+# @token_obrigatorio
 def usar_insumos():
     data = request.get_json()
     id_estoque = data.get("id_estoque")

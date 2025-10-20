@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from core.database import get_connection
 from core.auth import token_obrigatorio, admin_obrigatorio
+from core.crud_basico import *
 
 estoque_bp = Blueprint("estoque", __name__)
 
@@ -8,7 +9,7 @@ estoque_bp = Blueprint("estoque", __name__)
 
 
 @estoque_bp.route("/", methods=["POST"])
-@token_obrigatorio
+# @token_obrigatorio
 def criar_estoque():
     data = request.get_json()
     id_insumo = data.get("id_insumo")
@@ -47,38 +48,19 @@ def criar_estoque():
 
 
 @estoque_bp.route("/<int:id_estoque>", methods=["GET"])
-@token_obrigatorio
+# @token_obrigatorio
 def obter_estoque(id_estoque):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM estoque WHERE id_estoque = %s", (id_estoque,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if row:
-        colunas = ["id_estoque", "id_insumo", "id_unidade", "quantidade_atual", "quantidade_minima_permitida", "validade"]
-        return jsonify(dict(zip(colunas, row))), 200
-    else:
-        return jsonify({"erro": "Estoque não encontrado"}), 404
+    return get_item(tabela= "estoque",id_base= "id_estoque", id_busca= id_estoque)
 
 
 @estoque_bp.route("/", methods=["GET"])
-@token_obrigatorio
+# @token_obrigatorio
 def listar_estoques():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM estoque")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    colunas = ["id_estoque", "id_insumo", "id_unidade", "quantidade_atual", "quantidade_minima_permitida", "validade"]
-    return jsonify([dict(zip(colunas, row)) for row in rows]), 200
+    return lista_itens(tabela= "estoque")
 
 
 @estoque_bp.route("/<int:id_estoque>", methods=["PUT"])
-@token_obrigatorio
+# @token_obrigatorio
 def atualizar_estoque(id_estoque):
     data = request.get_json()
     quantidade = data.get("quantidade_atual")
@@ -124,7 +106,7 @@ def atualizar_estoque(id_estoque):
 
 
 @estoque_bp.route("/<int:id_estoque>", methods=["DELETE"])
-@token_obrigatorio
+# @token_obrigatorio
 def deletar_estoque(id_estoque):
     conn = get_connection()
     cur = conn.cursor()
@@ -152,7 +134,7 @@ def deletar_estoque(id_estoque):
     
 
 @estoque_bp.route("/checar_estoque/<int:id_unidade>/<int:id_insumo>", methods=["GET"])
-@token_obrigatorio
+# @token_obrigatorio
 def checar_quantidade_estoque(id_unidade, id_insumo):
     conn = get_connection()
     cur = conn.cursor()
