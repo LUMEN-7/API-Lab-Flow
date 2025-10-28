@@ -571,13 +571,26 @@ def usar_insumos():
         conn.close()
 
 # --- Funções do histórico
-@app.route("/historico", methods=["POST"])
+@app.route("/historico", methods=["GET"])
 @token_obrigatorio
 def listar_historico():
-    # opções: ENTRADA, SAÍDA, DESCARTE
     tipo = request.args.get("tipo")
-    # formato: YYYY-MM-DD
     data_filtro = request.args.get("data")
+
+    # filtro
+    # coluna
+    filtro_coluna = request.args.get("coluna")
+    #valor
+    filtro_valor = request.args.get("valor")
+
+    # paginas
+    try:
+        pagina = int(request.args.get("pagina", 1))
+        itens_por_pagina = int(request.args.get("itens_por_pagina", 20))  # default 20
+        if pagina < 1 or itens_por_pagina < 1:
+            raise ValueError
+    except ValueError:
+        return jsonify({"erro": "Parâmetros de página inválidos"}), 400
 
     query = """
         SELECT id_movimentacao, cpf, id_estoque, id_cabine, id_insumo,
@@ -596,7 +609,23 @@ def listar_historico():
         query += " AND DATE(data_hora_movimentacao) = %s"
         params.append(data_filtro)
 
+    colunas_validas = {
+        "id_movimentacao", "cpf", "id_estoque", "id_cabine",
+        "id_insumo", "tipo_movimentacao", "quantidade_insumo",
+        "origem", "destino"
+    }
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna in colunas_validas:
+            query += f" AND {filtro_coluna} = %s"
+            params.append(filtro_valor)
+        else:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+
     query += " ORDER BY data_hora_movimentacao DESC"
+
+    offset = (pagina - 1) * itens_por_pagina
+    query += " LIMIT %s OFFSET %s"
+    params.extend([itens_por_pagina, offset])
 
     conn = get_connection()
     cur = conn.cursor()
