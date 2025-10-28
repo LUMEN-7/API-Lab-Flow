@@ -2,6 +2,7 @@ from datetime import datetime, date
 from flask import jsonify
 from core.database import get_connection
 from psycopg2 import sql, DatabaseError
+import bcrypt
 from psycopg2.errors import UndefinedTable, SyntaxError, OperationalError
 
 
@@ -45,9 +46,6 @@ def inserir_elemento_generico(tabela, data, coluna_retorno="id"):
 
             colunas = list(data_convertida.keys())
             valores = list(data_convertida.values())
-
-            placeholders = ', '.join(['%s'] * len(colunas))
-            nomes_colunas = ', '.join(colunas)
 
             # Construir SQL com segurança
             query = sql.SQL("INSERT INTO {tabela} ({colunas}) VALUES ({valores}) RETURNING {coluna_retorno}").format(
@@ -253,8 +251,13 @@ def atualizar_itens(tabela, campos_permitidos, id_base, id_busca, data):
 
         for campo in campos_permitidos:
             if campo in data_convertida and data_convertida[campo] is not None:
-                colunas.append(sql.SQL("{} = %s").format(sql.Identifier(campo)))
-                valores.append(data_convertida[campo])
+                if not campo == "senha_user":
+                    colunas.append(sql.SQL("{} = %s").format(sql.Identifier(campo)))
+                    valores.append(data_convertida[campo])
+                    continue
+                senha_hash = bcrypt.hashpw(data[campo].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                colunas.append(f"{campo}=%s")
+                valores.append(senha_hash)
 
         if not colunas:
             return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400

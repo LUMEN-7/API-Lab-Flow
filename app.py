@@ -8,7 +8,7 @@ from routes.estoque.unidades import unidades_bp
 from routes.estoque.estoque import estoque_bp 
 from routes.adimistracao.historico import historico_bp
 from routes.adimistracao.pedidos import pedidos_bp
-from routes.adimistracao.alertas import alertas_bp
+# from routes.adimistracao.alertas import alertas_bp
 from routes.adimistracao.entradas import entradas_bp
 from routes.adimistracao.saidas import saidas_bp
 
@@ -27,7 +27,7 @@ app.register_blueprint(estoque_bp, url_prefix="/estoque")
 
 app.register_blueprint(historico_bp, url_prefix="/historico")
 app.register_blueprint(pedidos_bp, url_prefix="/pedidos")
-app.register_blueprint(alertas_bp, url_prefix="/alertas") 
+# app.register_blueprint(alertas_bp, url_prefix="/alertas") 
 app.register_blueprint(entradas_bp, url_prefix="/entradas") 
 app.register_blueprint(saidas_bp, url_prefix="/saidas")
 
