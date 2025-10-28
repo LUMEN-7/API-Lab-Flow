@@ -103,14 +103,34 @@ def criar_insumo():
 @app.route('/insumos', methods=['GET'])
 @token_obrigatorio
 def listar_insumos():
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {"id_insumo", "nome_insumo"}
+
+    query = """
+        SELECT id_insumo, nome_insumo
+        FROM insumo
+        WHERE 1=1
+    """
+    params = []
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+        query += f" AND {filtro_coluna} = %s"
+        params.append(filtro_valor)
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM insumo")
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     conn.close()
+
     insumos = [{"id_insumo": r[0], "nome_insumo": r[1]} for r in rows]
-    return jsonify(insumos)
+    return jsonify(insumos), 200
+
 
 @app.route('/insumos/<int:id_insumo>', methods=['GET'])
 @token_obrigatorio
@@ -205,9 +225,29 @@ def criar_exame():
 @app.route('/exames', methods=['GET'])
 @token_obrigatorio
 def listar_exames():
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {"id_exame", "nome_exame", "descricao_exame"}
+
+    query = """
+        SELECT id_exame, nome_exame, descricao_exame
+        FROM exames
+        WHERE 1=1
+    """
+    params = []
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+        query += f" AND {filtro_coluna} = %s"
+        params.append(filtro_valor)
+
+    query += " ORDER BY id_exame"
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id_exame, nome_exame, descricao_exame FROM exames ORDER BY id_exame")
+    cur.execute(query, tuple(params))
     exames = cur.fetchall()
     cur.close()
     conn.close()
@@ -216,7 +256,8 @@ def listar_exames():
         {"id_exame": ex[0], "nome_exame": ex[1], "descricao_exame": ex[2]}
         for ex in exames
     ]
-    return jsonify(resultados)
+    return jsonify(resultados), 200
+
 
 
 @app.route('/exames/<int:id_exame>', methods=['PATCH'])
@@ -303,9 +344,34 @@ def criar_pedido():
 @app.route('/pedidos', methods=['GET'])
 @token_obrigatorio
 def listar_pedidos():
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {"n_pedido", "user_lab_cpf", "grau_urgencia", "data_pedido", "status"}
+
+    query = """
+        SELECT n_pedido, user_lab_cpf, grau_urgencia, data_pedido, status
+        FROM pedido
+        WHERE 1=1
+    """
+    params = []
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+
+        if filtro_coluna == "data_pedido":
+            query += " AND DATE(data_pedido) = %s"
+        else:
+            query += f" AND {filtro_coluna} = %s"
+
+        params.append(filtro_valor)
+
+    query += " ORDER BY n_pedido"
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT n_pedido, user_lab_cpf, grau_urgencia, data_pedido, status FROM pedido ORDER BY n_pedido")
+    cur.execute(query, tuple(params))
     pedidos = cur.fetchall()
     cur.close()
     conn.close()
@@ -320,7 +386,9 @@ def listar_pedidos():
         }
         for p in pedidos
     ]
-    return jsonify(resultados)
+
+    return jsonify(resultados), 200
+
 
 
 @app.route('/pedidos/<int:n_pedido>', methods=['GET'])
@@ -430,9 +498,29 @@ def criar_unidade():
 @app.route('/unidades', methods=['GET'])
 @token_obrigatorio
 def listar_unidades():
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {"id_unidade", "marca_unidade", "endereco_unidade", "quantidade_cabine"}
+
+    query = """
+        SELECT id_unidade, marca_unidade, endereco_unidade, quantidade_cabine
+        FROM unidade
+        WHERE 1=1
+    """
+    params = []
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+        query += f" AND {filtro_coluna} = %s"
+        params.append(filtro_valor)
+
+    query += " ORDER BY id_unidade"
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id_unidade, marca_unidade, endereco_unidade, quantidade_cabine FROM unidade ORDER BY id_unidade")
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -441,7 +529,8 @@ def listar_unidades():
         {"id_unidade": r[0], "marca_unidade": r[1], "endereco_unidade": r[2], "quantidade_cabine": r[3]}
         for r in rows
     ]
-    return jsonify(unidades)
+    return jsonify(unidades), 200
+
 
 @app.route('/unidades/<int:id_unidade>', methods=['GET'])
 @token_obrigatorio
@@ -748,15 +837,45 @@ def obter_estoque(id_estoque):
 @app.route("/estoque", methods=["GET"])
 @token_obrigatorio
 def listar_estoques():
+    # filtros dinâmicos
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {
+        "id_estoque", "id_insumo", "id_unidade",
+        "quantidade_atual", "quantidade_minima_permitida",
+        "validade"
+    }
+
+    query = "SELECT id_estoque, id_insumo, id_unidade, quantidade_atual, quantidade_minima_permitida, validade FROM estoque WHERE 1=1"
+    params = []
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+
+        if filtro_coluna == "validade":
+            query += " AND DATE(validade) = %s"
+        else:
+            query += f" AND {filtro_coluna} = %s"
+
+        params.append(filtro_valor)
+
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM estoque")
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
     colunas = ["id_estoque", "id_insumo", "id_unidade", "quantidade_atual", "quantidade_minima_permitida", "validade"]
-    return jsonify([dict(zip(colunas, row)) for row in rows]), 200
+
+    resultado = []
+    for row in rows:
+        resultado.append(dict(zip(colunas, row)))
+
+    return jsonify(resultado), 200
+
 
 
 @app.route("/estoque/<int:id_estoque>", methods=["PUT"])
@@ -919,33 +1038,58 @@ def atualizar_usuario(cpf):
 @app.route("/usuarios", methods=["GET"])
 @token_obrigatorio
 def listar_usuarios():
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+
+    colunas_validas = {
+        "cpf", "nome_user", "cargo_user", "email_user", "administrador",
+        "telefone", "data_nascimento", "endereco"
+    }
+
     conn = get_connection()
     cur = conn.cursor()
 
-    if getattr(request, "admin_user", False):
-        cur.execute("""
-            SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco 
-            FROM user_lab
-        """)
-    else:
-        cur.execute("""
-            SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco 
-            FROM user_lab 
-            WHERE cpf=%s
-        """, (request.cpf_user,))
+    base_query = """
+        SELECT cpf, nome_user, cargo_user, email_user, administrador, telefone, data_nascimento, endereco
+        FROM user_lab
+        WHERE 1=1
+    """
+    params = []
 
+    if not getattr(request, "admin_user", False):
+        base_query += " AND cpf = %s"
+        params.append(request.cpf_user)
+
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": "Coluna inválida para filtro"}), 400
+        if filtro_coluna == "data_nascimento":
+            base_query += " AND DATE(data_nascimento) = %s"
+        else:
+            base_query += f" AND {filtro_coluna} = %s"
+        params.append(filtro_valor)
+
+    cur.execute(base_query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
     usuarios = [
         {
-            "cpf": r[0], "nome_user": r[1], "cargo_user": r[2], "email_user": r[3], "administrador": r[4],
-            "telefone": r[5], "data_nascimento": r[6], "endereco": r[7]
+            "cpf": r[0],
+            "nome_user": r[1],
+            "cargo_user": r[2],
+            "email_user": r[3],
+            "administrador": r[4],
+            "telefone": r[5],
+            "data_nascimento": r[6],
+            "endereco": r[7]
         }
         for r in rows
     ]
+
     return jsonify(usuarios), 200
+
 
 
 @app.route("/usuarios/<cpf>", methods=["GET"])
