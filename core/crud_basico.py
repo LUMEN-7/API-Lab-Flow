@@ -1,9 +1,11 @@
 from datetime import datetime, date
-from flask import jsonify
+from flask import request, jsonify
 from core.database import get_connection
 from psycopg2 import sql, DatabaseError
-import bcrypt
+from psycopg2.extras import RealDictCursor # Crucial para dicts
 from psycopg2.errors import UndefinedTable, SyntaxError, OperationalError
+import bcrypt
+import math
 
 
 
@@ -77,55 +79,122 @@ def inserir_elemento_generico(tabela, data, coluna_retorno="id"):
         return jsonify({"erro": f"Não foi possível colocar a nova entrada: {str(e)}"}), 400
 
 
-def lista_itens(tabela, campos_nao_permitidos=None):
+def lista_itens(tabela, colunas_validas, default_order_by, campos_nao_permitidos=None):
+    """
+    Função genérica para listar, filtrar (genericamente) e paginar itens.
+    Retorna no formato padronizado {"data": [...], "metadata": {...}}.
+    
+    :param tabela: Nome da tabela no banco (ex: "pedido").
+    :param colunas_validas: Um set de strings com nomes de colunas que são
+                            permitidas para filtragem (ex: {"n_pedido", "status"}).
+                            Também usado para segurança de 'default_order_by'.
+    :param default_order_by: A coluna para ordenação padrão (ex: "n_pedido").
+    :param campos_nao_permitidos: Um set de colunas para excluir da resposta
+                                  (ex: {"senha_user"}).
+    """
+    if campos_nao_permitidos is None:
+        campos_nao_permitidos = set()
+    
+    if default_order_by not in colunas_validas and not default_order_by.startswith("id_"):
+         # Permite IDs por padrão, mesmo que não listados
+         # Mas idealmente, 'default_order_by' deve estar em 'colunas_validas'
+         pass # Em um cenário real, você poderia lançar um erro aqui
+
+    # --- 1. Obter Parâmetros de Query ---
+    filtro_coluna = request.args.get("coluna")
+    filtro_valor = request.args.get("valor")
+    
     try:
-        # Verificações básicas
-        if not tabela or not isinstance(tabela, str):
-            return jsonify({"erro": "Nome da tabela inválido"}), 400
+        # Padrões: Página 1, 10 itens por página
+        pagina = int(request.args.get("pagina", 1))
+        itens_por_pagina = int(request.args.get("itens_por_pagina", 10))
+        if pagina < 1 or itens_por_pagina < 1:
+            raise ValueError
+    except ValueError:
+        return jsonify({"erro": "Parâmetros de página inválidos"}), 400
 
-        conn = get_connection()
-        cur = conn.cursor()
+    offset = (pagina - 1) * itens_por_pagina
 
-        # Consulta segura com psycopg2.sql para evitar SQL Injection
-        query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(tabela))
-        cur.execute(query)
-        todas_colunas = [desc[0] for desc in cur.description]
+    # --- 2. Construir Cláusula WHERE Dinâmica ---
+    params = []
+    # Começa com uma condição verdadeira para facilitar a adição de ANDs
+    where_clauses = [sql.SQL("1=1")] 
 
-        # Remove os campos não permitidos, se houver
-        if campos_nao_permitidos:
-            colunas_filtradas = [col for col in todas_colunas if col not in campos_nao_permitidos]
+    if filtro_coluna and filtro_valor:
+        if filtro_coluna not in colunas_validas:
+            return jsonify({"erro": f"Coluna inválida para filtro: {filtro_coluna}"}), 400
+        
+        # Tratamento especial para datas (como no seu base.py)
+        if "data" in filtro_coluna:
+             where_clauses.append(sql.SQL("DATE({col}) = %s").format(col=sql.Identifier(filtro_coluna)))
         else:
-            colunas_filtradas = todas_colunas
+             where_clauses.append(sql.SQL("{col} = %s").format(col=sql.Identifier(filtro_coluna)))
+        params.append(filtro_valor)
 
-        # Monta a query com apenas as colunas permitidas
-        query = sql.SQL("SELECT {} FROM {}").format(
-            sql.SQL(", ").join(map(sql.Identifier, colunas_filtradas)),
-            sql.Identifier(tabela)
+    # --- 3. Conexão e Execução das Queries ---
+    conn = get_connection()
+    # Use RealDictCursor para obter resultados como dicionários automaticamente
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # --- Query 1: Contagem Total (para metadados) ---
+        count_query_sql = sql.SQL("SELECT COUNT(*) AS total FROM {t} WHERE {w}").format(
+            t=sql.Identifier(tabela),
+            w=sql.SQL(" AND ").join(where_clauses)
         )
+        
+        cur.execute(count_query_sql, tuple(params))
+        resultado_contagem = cur.fetchone()
+        total_items = resultado_contagem["total"] if resultado_contagem else 0
+        
+        total_pages = math.ceil(total_items / itens_por_pagina) if total_items > 0 else 1
 
-        cur.execute(query)
-        rows = cur.fetchall()
+        # --- Query 2: Dados Paginados ---
+        data_query_sql = sql.SQL("SELECT * FROM {t} WHERE {w} ORDER BY {o} LIMIT %s OFFSET %s").format(
+            t=sql.Identifier(tabela),
+            w=sql.SQL(" AND ").join(where_clauses),
+            o=sql.Identifier(default_order_by) # Ordenação
+        )
+        
+        # Adiciona os parâmetros de paginação (LIMIT e OFFSET)
+        params_paginada = params + [itens_por_pagina, offset]
+        
+        cur.execute(data_query_sql, tuple(params_paginada))
+        rows = cur.fetchall() # rows já serão uma lista de dicts
 
-        # Se não houver resultados
-        if not rows:
-            return jsonify({"erro": "Nenhum registro encontrado"}), 404
+        # --- 4. Processar Resultados ---
+        data = []
+        for row_dict in rows:
+            item = {}
+            for key, val in row_dict.items():
+                # Pula colunas que não queremos expor (ex: senha)
+                if key in campos_nao_permitidos:
+                    continue
+                
+                # Converte datas/datetimes para string ISO (importante para JSON)
+                if isinstance(val, (datetime.date, datetime.datetime)):
+                    item[key] = val.isoformat()
+                else:
+                    item[key] = val
+            data.append(item)
 
-        cur.close()
-        conn.close()
-
-        # Converte para lista de dicionários
-        data = [dict(zip(colunas_filtradas, row)) for row in rows]
-
-        return jsonify(data), 200
-
-    except OperationalError:
-        return jsonify({"erro": "Erro na conexão com o banco de dados"}), 500
-
-    except DatabaseError as e:
-        return jsonify({"erro": f"Erro ao executar consulta: {str(e)}"}), 400
+        # --- 5. Montar Resposta Padronizada ---
+        metadata = {
+            "pagina": pagina,
+            "itens_por_pagina": itens_por_pagina,
+            "total_items": total_items,
+            "total_pages": total_pages
+        }
+        
+        return jsonify({"data": data, "metadata": metadata}), 200
 
     except Exception as e:
-        return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 400
+        conn.rollback()
+        print(f"Erro em lista_itens({tabela}): {e}") # Log de erro no console
+        return jsonify({"erro": "Erro interno ao listar itens"}), 500
+    finally:
+        cur.close()
+        conn.close()
 
     
 def get_item(tabela, id_base, id_busca, campos_nao_permitidos=None):

@@ -10,7 +10,7 @@ login_bp = Blueprint("login", __name__)
 
 
 
-@login_bp.route("/", methods=["POST"])
+@login_bp.route("", methods=["POST"])
 def login():
     try:
         data = request.get_json(silent=True)

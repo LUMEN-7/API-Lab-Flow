@@ -8,17 +8,22 @@ insumos_bp = Blueprint("insumos", __name__)
 
 
 # --- CRUD Insumos ---
-@insumos_bp.route('/', methods=['POST'])
+@insumos_bp.route('', methods=['POST'])
 # @token_obrigatorio
 # @admin_obrigatorio
 def criar_insumo():
     data = request.get_json()
     return inserir_elemento_generico(tabela= "insumo", data= data, coluna_retorno= "id_insumo")
 
-@insumos_bp.route('/', methods=['GET'])
+@insumos_bp.route('', methods=['GET'])
 # @token_obrigatorio
 def listar_insumos():
-    return lista_itens(tabela= "insumo")
+    colunas_validas = {"id_insumo", "nome_insumo", "categoria", "marca_insumo"}
+    return lista_itens(
+        tabela="insumo",
+        colunas_validas=colunas_validas,
+        default_order_by="nome_insumo"
+    )
 
 @insumos_bp.route('/<int:id_insumo>', methods=['GET'])
 # @token_obrigatorio

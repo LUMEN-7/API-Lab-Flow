@@ -6,7 +6,7 @@ from core.crud_basico import *
 usuarios_bp = Blueprint("usuarios", __name__)
 
 # --- CRUD usuarios ---
-@usuarios_bp.route("/", methods=["POST"])
+@usuarios_bp.route("", methods=["POST"])
 def criar_usuario():
     data = request.get_json()
     data_convertida = parse_data_segura(data)
@@ -57,8 +57,21 @@ def atualizar_usuario(cpf):
 # @token_obrigatorio
 # @admin_obrigatorio
 def listar_usuarios():
-    campos_nao_permitidos=["endereco","senha_user"]
-    return lista_itens(tabela= "user_lab",campos_nao_permitidos= campos_nao_permitidos)
+    # Colunas que NÃO devem aparecer no JSON de resposta
+    campos_nao_permitidos = {"endereco", "senha_user"}
+    
+    # Colunas que podem ser usadas para FILTRAR
+    colunas_validas = {
+        "cpf", "nome_user", "cargo_user", "email_user", "administrador",
+        "telefone", "data_nascimento"
+        # "endereco" e "senha_user" não devem ser filtráveis
+    }
+    return lista_itens(
+        tabela="user_lab", 
+        colunas_validas=colunas_validas, 
+        default_order_by="nome_user",
+        campos_nao_permitidos=campos_nao_permitidos
+    )
 
 
 @usuarios_bp.route("/<cpf>", methods=["GET"])
