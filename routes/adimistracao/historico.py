@@ -9,7 +9,7 @@ historico_bp = Blueprint("historico", __name__)
 
 
 # --- Funções do histórico
-@historico_bp.route("/", methods=["POST"])
+@historico_bp.route("", methods=["POST"])
 @token_obrigatorio
 def listar_historico():
     # opções: ENTRADA, SAÍDA, DESCARTE

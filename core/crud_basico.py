@@ -22,7 +22,6 @@ def parse_data_segura(valor):
             continue
     return valor  # retorna original se não for data válida
 
-
 def inserir_elemento_generico(tabela, data, coluna_retorno="id"):
     try:
             
@@ -115,7 +114,6 @@ def lista_itens(tabela, campos_nao_permitidos=None):
 
         # Converte para lista de dicionários
         data = [dict(zip(colunas_filtradas, row)) for row in rows]
-
         return jsonify(data), 200
 
     except OperationalError:

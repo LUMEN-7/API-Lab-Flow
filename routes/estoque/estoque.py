@@ -8,7 +8,7 @@ estoque_bp = Blueprint("estoque", __name__)
 # --- Funções e CRUD de estoque ---
 
 
-@estoque_bp.route("/", methods=["POST"])
+@estoque_bp.route("", methods=["POST"])
 # @token_obrigatorio
 def criar_estoque():
     data = request.get_json()
@@ -53,13 +53,13 @@ def obter_estoque(id_estoque):
     return get_item(tabela= "estoque",id_base= "id_estoque", id_busca= id_estoque)
 
 
-@estoque_bp.route("/", methods=["GET"])
+@estoque_bp.route("", methods=["GET"])
 # @token_obrigatorio
 def listar_estoques():
     return lista_itens(tabela= "estoque")
 
 
-@estoque_bp.route("/<int:id_estoque>", methods=["PUT"])
+@estoque_bp.route("/<int:id_estoque>", methods=["PATCH"])
 # @token_obrigatorio
 def atualizar_estoque(id_estoque):
     data = request.get_json()
@@ -167,3 +167,4 @@ def checar_quantidade_estoque(id_unidade, id_insumo):
         "quantidade": quantidade_atual,
         "limite_minimo": quantidade_minima
     }), 200
+

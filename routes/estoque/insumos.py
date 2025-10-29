@@ -15,7 +15,7 @@ def criar_insumo():
     data = request.get_json()
     return inserir_elemento_generico(tabela= "insumo", data= data, coluna_retorno= "id_insumo")
 
-@insumos_bp.route('/', methods=['GET'])
+@insumos_bp.route('', methods=['GET'])
 # @token_obrigatorio
 def listar_insumos():
     return lista_itens(tabela= "insumo")

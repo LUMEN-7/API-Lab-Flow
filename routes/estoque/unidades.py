@@ -7,7 +7,7 @@ unidades_bp = Blueprint("unidades", __name__)
 
 
 # --- CRUD Unidade ---
-@unidades_bp.route('/', methods=['POST'])
+@unidades_bp.route('', methods=['POST'])
 # @token_obrigatorio
 # @admin_obrigatorio
 def criar_unidade():   
@@ -15,7 +15,7 @@ def criar_unidade():
     return inserir_elemento_generico(tabela="unidade", data= data, coluna_retorno= "id_unidade")
 
 
-@unidades_bp.route('/', methods=['GET'])
+@unidades_bp.route('', methods=['GET'])
 # @token_obrigatorio
 def listar_unidades():
     return lista_itens(tabela= "unidade")

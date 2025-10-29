@@ -6,14 +6,14 @@ from core.crud_basico import *
 entradas_bp = Blueprint("entradas", __name__)
 
 
-@entradas_bp.route('/', methods=['POST'])
+@entradas_bp.route('', methods=['POST'])
 # @token_obrigatorio
 # @admin_obrigatorio
 def criar_entradas():
     resposta = request.get_json()
     return inserir_elemento_generico(tabela= "entrada_estoque_armazem", data= resposta, coluna_retorno= "id_encomenda")
 
-@entradas_bp.route('/', methods=['GET'])
+@entradas_bp.route('', methods=['GET'])
 # @token_obrigatorio
 def listar_entradas():
     return lista_itens(tabela= "entrada_estoque_armazem")

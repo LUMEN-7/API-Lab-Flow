@@ -7,14 +7,14 @@ pedidos_bp = Blueprint("pedidos", __name__)
 
 
 # --- CRUD Pedido ---
-@pedidos_bp.route('/', methods=['POST'])
+@pedidos_bp.route('', methods=['POST'])
 # @token_obrigatorio
 def criar_pedido():
     data = request.get_json()
     return inserir_elemento_generico(tabela="pedido", data= data, coluna_retorno= "n_pedido")
 
 
-@pedidos_bp.route('/', methods=['GET'])
+@pedidos_bp.route('', methods=['GET'])
 # @token_obrigatorio
 def listar_pedidos():
     return lista_itens(tabela= "pedido")

@@ -7,7 +7,7 @@ exames_bp = Blueprint("exames", __name__)
 
 
 # --- CRUD Exame ---
-@exames_bp.route('/', methods=['POST'])
+@exames_bp.route('', methods=['POST'])
 @token_obrigatorio
 @admin_obrigatorio
 def criar_exame():
@@ -15,7 +15,7 @@ def criar_exame():
     return inserir_elemento_generico(tabela="exame", data= data, coluna_retorno= "id_exame")
 
 
-@exames_bp.route('/', methods=['GET'])
+@exames_bp.route('', methods=['GET'])
 @token_obrigatorio
 def listar_exames():
     return lista_itens(tabela= "exame")

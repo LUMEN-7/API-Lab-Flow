@@ -6,7 +6,7 @@ from core.crud_basico import *
 usuarios_bp = Blueprint("usuarios", __name__)
 
 # --- CRUD usuarios ---
-@usuarios_bp.route("/", methods=["POST"])
+@usuarios_bp.route("", methods=["POST"])
 def criar_usuario():
     data = request.get_json()
     data_convertida = parse_data_segura(data)
@@ -53,7 +53,7 @@ def atualizar_usuario(cpf):
     return atualizar_itens(tabela= "user_lab" ,campos_permitidos= campos_permitidos ,id_base="cpf" ,id_busca=cpf ,data= data )
 
 
-@usuarios_bp.route("/", methods=["GET"])
+@usuarios_bp.route("", methods=["GET"])
 # @token_obrigatorio
 # @admin_obrigatorio
 def listar_usuarios():
