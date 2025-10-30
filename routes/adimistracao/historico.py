@@ -46,9 +46,18 @@ def listar_historico():
 
     # Colunas válidas para filtro genérico
     colunas_validas = {
-        "id_movimentacao", "cpf", "id_estoque", "id_cabine",
-        "id_insumo", "tipo_movimentacao", "quantidade_insumo",
-        "origem", "destino"
+        "id_movimentacao",
+        "cpf",
+        "id_estoque",
+        "id_cabine",
+        "data_hora_movimentacao",
+        "tipo_movimentacao",
+        "quantidade_insumo",
+        "origem",
+        "destino",
+        "id_insumo",
+        "id_entrada",
+        "id_saida",
     }
     if filtro_coluna and filtro_valor:
         if filtro_coluna not in colunas_validas:

@@ -77,22 +77,22 @@ def listar_pedidos_lookup():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         # Passa a lista de parâmetros para o execute para segurança
-        print(f"Query: {query.as_string(conn)}") # Para debug
-        print(f"Params: {params}") # Para debug
+        # print(f"Query: {query.as_string(conn)}") # Para debug
+        # print(f"Params: {params}") # Para debug
         
         # Agora sim: o número de %s na query bate com o len(params)
         cur.execute(query, tuple(params)) 
         
         pedidos = cur.fetchall()
         
-        print(f"Resultados: {pedidos}")
+        # print(f"Resultados: {pedidos}")
         return jsonify(pedidos), 200
         
     except Exception as e:
-        print(f"Erro em /pedidos/lookup: {e}")
-        # Log mais detalhado
-        print(f"Query que falhou: {query.as_string(conn)}")
-        print(f"Parâmetros da falha: {params}")
+        # print(f"Erro em /pedidos/lookup: {e}")
+        # # Log mais detalhado
+        # print(f"Query que falhou: {query.as_string(conn)}")
+        # print(f"Parâmetros da falha: {params}")
         return jsonify({"erro": f"Erro ao buscar lista de pedidos: {str(e)}"}), 500
     finally:
         cur.close()

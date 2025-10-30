@@ -6,6 +6,7 @@ from routes.exames.exames import exames_bp
 from routes.estoque.insumos import insumos_bp
 from routes.estoque.unidades import unidades_bp
 from routes.estoque.estoque import estoque_bp 
+from routes.estoque.armazem import armazem_bp 
 from routes.adimistracao.historico import historico_bp
 from routes.adimistracao.pedidos import pedidos_bp
 # from routes.adimistracao.alertas import alertas_bp
@@ -24,6 +25,7 @@ app.register_blueprint(exames_bp, url_prefix="/exames")
 app.register_blueprint(insumos_bp, url_prefix="/insumos")
 app.register_blueprint(unidades_bp, url_prefix="/unidades")
 app.register_blueprint(estoque_bp, url_prefix="/estoque")
+app.register_blueprint(armazem_bp, url_prefix="/armazem")
 
 app.register_blueprint(historico_bp, url_prefix="/historico")
 app.register_blueprint(pedidos_bp, url_prefix="/pedidos")

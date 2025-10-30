@@ -161,7 +161,7 @@ def lista_itens(tabela, colunas_validas, default_order_by, campos_nao_permitidos
         
         cur.execute(data_query_sql, tuple(params_paginada))
         rows = cur.fetchall() # rows já serão uma lista de dicts
-
+        
         # --- 4. Processar Resultados ---
         data = []
         for row_dict in rows:
@@ -171,11 +171,18 @@ def lista_itens(tabela, colunas_validas, default_order_by, campos_nao_permitidos
                 if key in campos_nao_permitidos:
                     continue
                 
-                # Converte datas/datetimes para string ISO (importante para JSON)
-                if isinstance(val, (datetime.date, datetime.datetime)):
+                if isinstance(val, datetime):
+                    # Força a formatação para 'AAAA-MM-DD'
+                    item[key] = val.strftime('%Y-%m-%d')
+                
+                # Se for um objeto date (sem hora)
+                elif isinstance(val, date):
+                    # O isoformat() já retorna 'AAAA-MM-DD'
                     item[key] = val.isoformat()
                 else:
+                    # Deixa os outros valores (int, string, bool) como estão
                     item[key] = val
+                
             data.append(item)
 
         # --- 5. Montar Resposta Padronizada ---
@@ -185,7 +192,7 @@ def lista_itens(tabela, colunas_validas, default_order_by, campos_nao_permitidos
             "total_items": total_items,
             "total_pages": total_pages
         }
-        
+        # print({"data": data, "metadata": metadata})
         return jsonify({"data": data, "metadata": metadata}), 200
 
     except Exception as e:
@@ -330,7 +337,6 @@ def atualizar_itens(tabela, campos_permitidos, id_base, id_busca, data):
 
         if not colunas:
             return jsonify({"erro": "Nenhum campo válido fornecido para atualização"}), 400
-        print(valores)
         # 🧱 Monta query segura
         query = sql.SQL("UPDATE {tabela} SET {set_clause} WHERE {id_coluna} = %s RETURNING *").format(
             tabela=sql.Identifier(tabela),
