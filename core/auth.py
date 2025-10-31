@@ -1,11 +1,10 @@
 from functools import wraps
 from flask import request, jsonify
 import jwt, datetime, os
-from segredo import SECRET_KEY
 from core.database import get_connection
 
 
-
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def gerar_token(email_user, cpf_user, admin_user):
     payload = {
