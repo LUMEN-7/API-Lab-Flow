@@ -5,6 +5,7 @@ from core.database import get_connection
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+SECRET_KEY = os.environ.get("SECRET_KEY", "chave_temporaria")
 
 def gerar_token(email_user, cpf_user, admin_user):
     payload = {
