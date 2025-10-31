@@ -11,6 +11,7 @@ entradas_bp = Blueprint("entradas", __name__)
 # @admin_obrigatorio
 def criar_entradas():
     resposta = request.get_json()
+    print(resposta)
     return inserir_elemento_generico(tabela= "entrada_estoque_armazem", data= resposta, coluna_retorno= "id_encomenda")
 
 @entradas_bp.route('', methods=['GET'])

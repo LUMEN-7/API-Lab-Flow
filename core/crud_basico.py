@@ -72,7 +72,7 @@ def _build_dynamic_where_clause(args: dict, colunas_validas: set) -> (list, list
     where_clauses = [sql.SQL("1=1")]
     
     for key, value in args.items():
-        if key in ['pagina', 'itens_por_pagina']:
+        if key in ['page', 'itens_por_pagina']:
             continue
 
         parts = key.split('__')
@@ -148,7 +148,7 @@ def _build_update_set_clause(data_convertida: dict, campos_permitidos: list) -> 
 def _parse_pagination_args(args: dict) -> (int, int, int):
     """(Helper) Valida e retorna (limite, offset, pagina_atual)."""
     try:
-        pagina = int(args.get("pagina", 1))
+        pagina = int(args.get("page", 1))
         itens_por_pagina = int(args.get("itens_por_pagina", 10))
         if pagina < 1 or itens_por_pagina < 1:
             raise ValueError("Parâmetros de página não podem ser menores que 1")
@@ -214,7 +214,7 @@ def inserir_elemento_generico(tabela, data, coluna_retorno="id"):
 
         # 2. Construção da Query (usando helper)
         query = _build_insert_query(tabela, colunas, coluna_retorno)
-
+        print(valores)
         # 3. Execução
         cur.execute(query, valores)
         new_id = cur.fetchone()[0]
